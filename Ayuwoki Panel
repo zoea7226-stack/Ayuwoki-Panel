@@ -1,0 +1,255 @@
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+if PlayerGui:FindFirstChild("AyuwokiPanel") then return end
+
+-- SAVE LIGHTING
+local original = {
+	Brightness = Lighting.Brightness,
+	FogEnd = Lighting.FogEnd
+}
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "AyuwokiPanel"
+gui.ResetOnSpawn = false
+gui.Parent = PlayerGui
+
+-- MAIN FRAME
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 260, 0, 310)
+main.Position = UDim2.new(0, 30, 0, 30)
+main.BackgroundColor3 = Color3.fromRGB(18,18,18)
+main.Parent = gui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+
+-- HEADER
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1,0,0,35)
+header.BackgroundColor3 = Color3.fromRGB(25,25,25)
+header.Parent = main
+Instance.new("UICorner", header).CornerRadius = UDim.new(0,12)
+
+-- TITLE
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,1,0)
+title.BackgroundTransparency = 1
+title.Text = "Ayuwoki Panel"
+title.TextColor3 = Color3.fromRGB(0,255,150)
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 18
+title.Parent = header
+
+-- CONTENT
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1,0,1,-40)
+content.Position = UDim2.new(0,0,0,40)
+content.BackgroundTransparency = 1
+content.Parent = main
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0,8)
+layout.Parent = content
+
+-- BUTTON FUNCTION
+local function makeButton(text)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1,-10,0,40)
+	b.Text = text
+	b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	b.TextColor3 = Color3.fromRGB(0,255,0)
+	b.Font = Enum.Font.GothamBold
+	b.TextSize = 14
+	b.Parent = content
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+	return b
+end
+
+local nvButton = makeButton("Night Vision: OFF")
+local trackButton = makeButton("Track NPC: OFF")
+local espButton = makeButton("ESP Players: OFF")
+local tpButton = makeButton("Teleport Players")
+
+-- TELEPORT LIST
+local listFrame = Instance.new("Frame")
+listFrame.Size = UDim2.new(1,-10,0,90)
+listFrame.BackgroundColor3 = Color3.fromRGB(10,10,10)
+listFrame.Visible = false
+listFrame.Parent = content
+Instance.new("UICorner", listFrame)
+
+local listLayout = Instance.new("UIListLayout", listFrame)
+
+-- TRACK LABEL
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(0,320,0,40)
+label.Position = UDim2.new(0.5,-160,0,10)
+label.BackgroundTransparency = 1
+label.TextScaled = true
+label.Font = Enum.Font.GothamBold
+label.Text = ""
+label.Parent = gui
+
+-- EFFECTS
+local color = Instance.new("ColorCorrectionEffect")
+color.Enabled = false
+color.TintColor = Color3.fromRGB(150,255,150)
+color.Brightness = 0.4
+color.Parent = Lighting
+
+local overlay = Instance.new("Frame")
+overlay.Size = UDim2.new(1,0,1,0)
+overlay.BackgroundColor3 = Color3.fromRGB(0,255,0)
+overlay.BackgroundTransparency = 1
+overlay.Parent = gui
+
+-- STATES
+local nvOn, trackOn, espOn = false, false, false
+local highlights = {}
+
+-- NIGHT VISION
+nvButton.MouseButton1Click:Connect(function()
+	nvOn = not nvOn
+	nvButton.Text = "Night Vision: "..(nvOn and "ON" or "OFF")
+	
+	if nvOn then
+		color.Enabled = true
+		Lighting.FogEnd = 100000
+		Lighting.Brightness = 3
+		overlay.BackgroundTransparency = 0.95
+	else
+		color.Enabled = false
+		Lighting.FogEnd = original.FogEnd
+		Lighting.Brightness = original.Brightness
+		overlay.BackgroundTransparency = 1
+	end
+end)
+
+-- NPC TRACKER (200m)
+local function getClosestNPC()
+	local closest, dist = nil, 200
+	
+	for _, v in pairs(workspace:GetDescendants()) do
+		if v:IsA("Model") and not Players:GetPlayerFromCharacter(v) then
+			local hum = v:FindFirstChildOfClass("Humanoid")
+			local root = v:FindFirstChild("HumanoidRootPart")
+			
+			if hum and root and hum.Health > 0 then
+				local d = (root.Position - player.Character.HumanoidRootPart.Position).Magnitude
+				if d < dist then
+					dist = d
+					closest = v
+				end
+			end
+		end
+	end
+	
+	return closest, dist
+end
+
+local function updateColor(d)
+	if d <= 50 then
+		label.TextColor3 = Color3.fromRGB(255,0,0)
+	elseif d <= 100 then
+		label.TextColor3 = Color3.fromRGB(255,255,0)
+	else
+		label.TextColor3 = Color3.fromRGB(0,255,0)
+	end
+end
+
+trackButton.MouseButton1Click:Connect(function()
+	trackOn = not trackOn
+	trackButton.Text = "Track NPC: "..(trackOn and "ON" or "OFF")
+end)
+
+RunService.RenderStepped:Connect(function()
+	if trackOn and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+		local npc, dist = getClosestNPC()
+		if npc then
+			updateColor(dist)
+			label.Text = npc.Name.." ["..math.floor(dist).."m]"
+		else
+			label.Text = "No NPC Found"
+		end
+	end
+end)
+
+-- ESP PLAYERS
+espButton.MouseButton1Click:Connect(function()
+	espOn = not espOn
+	espButton.Text = "ESP Players: "..(espOn and "ON" or "OFF")
+
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player and p.Character then
+			if espOn then
+				local h = Instance.new("Highlight")
+				h.FillColor = Color3.fromRGB(0,255,0)
+				h.Parent = p.Character
+				highlights[p] = h
+			else
+				if highlights[p] then
+					highlights[p]:Destroy()
+					highlights[p] = nil
+				end
+			end
+		end
+	end
+end)
+
+-- TELEPORT
+local function refreshList()
+	listFrame:ClearAllChildren()
+	listLayout.Parent = listFrame
+	
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player then
+			local b = Instance.new("TextButton")
+			b.Size = UDim2.new(1,0,0,25)
+			b.Text = p.Name
+			b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+			b.TextColor3 = Color3.fromRGB(0,255,0)
+			b.Parent = listFrame
+			
+			b.MouseButton1Click:Connect(function()
+				if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+					player.Character:MoveTo(p.Character.HumanoidRootPart.Position + Vector3.new(2,0,0))
+				end
+			end)
+		end
+	end
+end
+
+tpButton.MouseButton1Click:Connect(function()
+	listFrame.Visible = not listFrame.Visible
+	if listFrame.Visible then
+		refreshList()
+	end
+end)
+
+-- DRAG
+local dragging, dragStart, startPos
+
+header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
