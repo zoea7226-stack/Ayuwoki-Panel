@@ -11,7 +11,8 @@ if PlayerGui:FindFirstChild("AyuwokiPanel") then return end
 -- SAVE LIGHTING
 local original = {
 	Brightness = Lighting.Brightness,
-	FogEnd = Lighting.FogEnd
+	FogEnd = Lighting.FogEnd,
+	FogStart = Lighting.FogStart
 }
 
 -- GUI
@@ -22,18 +23,17 @@ gui.Parent = PlayerGui
 
 -- MAIN FRAME
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 260, 0, 320)
+main.Size = UDim2.new(0, 260, 0, 330)
 main.Position = UDim2.new(0, 40, 0, 40)
 main.BackgroundColor3 = Color3.fromRGB(18,18,18)
 main.Parent = gui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+Instance.new("UICorner", main)
 
 -- HEADER
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1,0,0,35)
 header.BackgroundColor3 = Color3.fromRGB(25,25,25)
 header.Parent = main
-Instance.new("UICorner", header)
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,1,0)
@@ -49,13 +49,10 @@ local hideBtn = Instance.new("TextButton")
 hideBtn.Size = UDim2.new(0,30,0,30)
 hideBtn.Position = UDim2.new(1,-35,0,2)
 hideBtn.Text = "-"
-hideBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-hideBtn.TextColor3 = Color3.new(1,1,1)
 hideBtn.Parent = header
 
--- SHOW BUTTON
 local openBtn = Instance.new("TextButton")
-openBtn.Size = UDim2.new(0,80,0,30)
+openBtn.Size = UDim2.new(0,90,0,30)
 openBtn.Position = UDim2.new(0,10,1,-40)
 openBtn.Text = "Open Panel"
 openBtn.Visible = false
@@ -71,7 +68,7 @@ openBtn.MouseButton1Click:Connect(function()
 	openBtn.Visible = false
 end)
 
--- SCROLL FRAME
+-- SCROLL
 local scroll = Instance.new("ScrollingFrame")
 scroll.Size = UDim2.new(1,0,1,-40)
 scroll.Position = UDim2.new(0,0,0,40)
@@ -82,6 +79,15 @@ scroll.Parent = main
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0,8)
 
+-- INPUT BOX
+local search = Instance.new("TextBox")
+search.Size = UDim2.new(1,-10,0,35)
+search.PlaceholderText = "Enter player name..."
+search.BackgroundColor3 = Color3.fromRGB(25,25,25)
+search.TextColor3 = Color3.fromRGB(0,255,0)
+search.Parent = scroll
+Instance.new("UICorner", search)
+
 -- BUTTON CREATOR
 local function makeButton(text)
 	local b = Instance.new("TextButton")
@@ -89,37 +95,15 @@ local function makeButton(text)
 	b.Text = text
 	b.BackgroundColor3 = Color3.fromRGB(30,30,30)
 	b.TextColor3 = Color3.fromRGB(0,255,0)
-	b.Font = Enum.Font.GothamBold
-	b.TextSize = 14
 	b.Parent = scroll
 	Instance.new("UICorner", b)
 	return b
 end
 
--- SEARCH BOX
-local search = Instance.new("TextBox")
-search.Size = UDim2.new(1,-10,0,35)
-search.PlaceholderText = "Search player..."
-search.Text = ""
-search.BackgroundColor3 = Color3.fromRGB(25,25,25)
-search.TextColor3 = Color3.fromRGB(0,255,0)
-search.Parent = scroll
-Instance.new("UICorner", search)
-
--- BUTTONS
+local tpDirect = makeButton("TP To Player")
 local nvButton = makeButton("Night Vision: OFF")
 local trackButton = makeButton("Track NPC: OFF")
 local espButton = makeButton("ESP Players: OFF")
-local tpButton = makeButton("Refresh Player List")
-
--- PLAYER LIST
-local listFrame = Instance.new("Frame")
-listFrame.Size = UDim2.new(1,-10,0,150)
-listFrame.BackgroundColor3 = Color3.fromRGB(10,10,10)
-listFrame.Parent = scroll
-Instance.new("UICorner", listFrame)
-
-local listLayout = Instance.new("UIListLayout", listFrame)
 
 -- TRACK LABEL
 local label = Instance.new("TextLabel")
@@ -130,43 +114,45 @@ label.TextScaled = true
 label.Font = Enum.Font.GothamBold
 label.Parent = gui
 
--- NIGHT VISION
+-- 🌙 NIGHT VISION (UPGRADED)
 local color = Instance.new("ColorCorrectionEffect")
 color.Parent = Lighting
 
+local bloom = Instance.new("BloomEffect")
+bloom.Parent = Lighting
+
 nvButton.MouseButton1Click:Connect(function()
 	color.Enabled = not color.Enabled
+	bloom.Enabled = color.Enabled
+	
 	nvButton.Text = "Night Vision: "..(color.Enabled and "ON" or "OFF")
+	
 	if color.Enabled then
-		color.TintColor = Color3.fromRGB(150,255,150)
-		Lighting.FogEnd = 100000
-		Lighting.Brightness = 3
+		color.TintColor = Color3.fromRGB(120,255,120)
+		color.Brightness = 0.6
+		color.Contrast = 0.3
+		
+		bloom.Intensity = 0.8
+		bloom.Size = 56
+		
+		Lighting.FogStart = 0
+		Lighting.FogEnd = 500 -- medium fog removal
+		
+		Lighting.Brightness = 4
 	else
+		color.Brightness = 0
+		color.Contrast = 0
+		bloom.Enabled = false
+		
+		Lighting.FogStart = original.FogStart
 		Lighting.FogEnd = original.FogEnd
 		Lighting.Brightness = original.Brightness
 	end
 end)
 
--- NPC TRACK
-local function getNPC()
-	local closest, dist = nil, 200
-	for _, v in pairs(workspace:GetDescendants()) do
-		if v:IsA("Model") and not Players:GetPlayerFromCharacter(v) then
-			local hum = v:FindFirstChildOfClass("Humanoid")
-			local root = v:FindFirstChild("HumanoidRootPart")
-			if hum and root and hum.Health > 0 then
-				local d = (root.Position - player.Character.HumanoidRootPart.Position).Magnitude
-				if d < dist then
-					dist = d
-					closest = v
-				end
-			end
-		end
-	end
-	return closest, dist
-end
-
+-- 🤖 NPC TRACK (200m)
 local tracking = false
+
 trackButton.MouseButton1Click:Connect(function()
 	tracking = not tracking
 	trackButton.Text = "Track NPC: "..(tracking and "ON" or "OFF")
@@ -174,8 +160,24 @@ end)
 
 RunService.RenderStepped:Connect(function()
 	if tracking and player.Character then
-		local npc, dist = getNPC()
-		if npc then
+		local closest, dist = nil, 200
+		
+		for _, v in pairs(workspace:GetDescendants()) do
+			if v:IsA("Model") and not Players:GetPlayerFromCharacter(v) then
+				local hum = v:FindFirstChildOfClass("Humanoid")
+				local root = v:FindFirstChild("HumanoidRootPart")
+				
+				if hum and root and hum.Health > 0 then
+					local d = (root.Position - player.Character.HumanoidRootPart.Position).Magnitude
+					if d < dist then
+						dist = d
+						closest = v
+					end
+				end
+			end
+		end
+		
+		if closest then
 			if dist <= 50 then
 				label.TextColor3 = Color3.new(1,0,0)
 			elseif dist <= 100 then
@@ -183,16 +185,18 @@ RunService.RenderStepped:Connect(function()
 			else
 				label.TextColor3 = Color3.new(0,1,0)
 			end
-			label.Text = npc.Name.." ["..math.floor(dist).."m]"
+			
+			label.Text = closest.Name.." ["..math.floor(dist).."m]"
 		end
 	end
 end)
 
--- ESP
+-- 👁️ ESP
 local esp = false
 espButton.MouseButton1Click:Connect(function()
 	esp = not esp
 	espButton.Text = "ESP Players: "..(esp and "ON" or "OFF")
+	
 	for _, p in pairs(Players:GetPlayers()) do
 		if p ~= player and p.Character then
 			if esp then
@@ -207,40 +211,27 @@ espButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- TELEPORT LIST FIX
-local function refreshList()
-	listFrame:ClearAllChildren()
-	listLayout.Parent = listFrame
+-- 🚀 DIRECT TELEPORT
+tpDirect.MouseButton1Click:Connect(function()
+	local name = string.lower(search.Text)
 	
 	for _, p in pairs(Players:GetPlayers()) do
-		if p ~= player then
-			if search.Text == "" or string.find(string.lower(p.Name), string.lower(search.Text)) then
-				local b = Instance.new("TextButton")
-				b.Size = UDim2.new(1,0,0,25)
-				b.Text = p.Name
-				b.BackgroundColor3 = Color3.fromRGB(30,30,30)
-				b.TextColor3 = Color3.fromRGB(0,255,0)
-				b.Parent = listFrame
+		if string.find(string.lower(p.Name), name) then
+			if player.Character and p.Character then
+				local myRoot = player.Character:FindFirstChild("HumanoidRootPart")
+				local targetRoot = p.Character:FindFirstChild("HumanoidRootPart")
 				
-				b.MouseButton1Click:Connect(function()
-					if player.Character and p.Character then
-						local myRoot = player.Character:FindFirstChild("HumanoidRootPart")
-						local targetRoot = p.Character:FindFirstChild("HumanoidRootPart")
-						if myRoot and targetRoot then
-							myRoot.CFrame = targetRoot.CFrame + Vector3.new(3,0,0)
-						end
-					end
-				end)
+				if myRoot and targetRoot then
+					myRoot.CFrame = targetRoot.CFrame + Vector3.new(3,0,0)
+				end
 			end
 		end
 	end
-end
-
-tpButton.MouseButton1Click:Connect(refreshList)
-search:GetPropertyChangedSignal("Text"):Connect(refreshList)
+end)
 
 -- DRAG
 local dragging, dragStart, startPos
+
 header.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		dragging = true
